@@ -12,74 +12,296 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
     <style>
-        /* ...existing styles... */
+        /* --- Native Feel Tweaks --- */
+        body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        input, select, textarea { font-size: 16px !important; }
+        #leadModal.open .modal-content, #logsModal.open .modal-content, #configModal.open .modal-content { transform: translateY(0); }
+        .modal-content { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        #sideMenu.open .menu-panel { transform: translateX(0); }
+        #sideMenu .menu-panel { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); transform: translateX(-100%); }
+        .tab-active { color: #4f46e5; border-bottom: 2px solid #4f46e5; }
+        .tab-inactive { color: #64748b; border-bottom: 2px solid transparent; }
+        .timeline-line::before { content: ''; position: absolute; left: 1rem; top: 2rem; bottom: -1rem; width: 2px; background-color: #e2e8f0; z-index: 0; }
+        .timeline-item:last-child .timeline-line::before { display: none; }
+        #loginScreen { z-index: 100; }
+        input[type="file"]::file-selector-button { display: none; }
+        
+        /* Loading Overlay */
+        #loadingOverlay { z-index: 9999; }
+
+        /* Table Styles */
+        .table-row-hover:hover td { background-color: #f8fafc; }
+        
+        /* Autocomplete Styles */
+        .interest-tag { transition: all 0.2s; }
+        .interest-tag:hover { background-color: #e0e7ff; border-color: #c7d2fe; }
+        .suggestions-box { 
+            z-index: 50; 
+            max-height: 200px; 
+            overflow-y: auto; 
+            position: absolute; 
+            top: 100%; 
+            left: 0; 
+            width: 100%; 
+            background: white; 
+            border: 1px solid #e2e8f0; 
+            border-radius: 0.75rem; 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
+            margin-top: 4px; 
+        }
+        
+        .suggestion-item { padding: 0.75rem 1rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-size: 0.875rem; color: #334155; }
+        .suggestion-item:last-child { border-bottom: none; }
+        .suggestion-item:hover { background-color: #f8fafc; color: #4f46e5; }
+
+        @media (min-width: 768px) {
+            .mobile-only { display: none !important; }
+            .desktop-only { display: block !important; }
+            .kanban-board { display: flex !important; overflow-x: auto; }
+            .kanban-column { min-width: 320px; display: flex !important; }
+        }
+        @media (max-width: 767px) {
+            .desktop-only { display: none !important; }
+            .kanban-column { display: none; }
+            .kanban-column.active-mobile { display: flex; }
+            .modal-content { transform: translateY(100%); border-radius: 1.5rem 1.5rem 0 0; height: 90vh; margin-top: auto; }
+        }
     </style>
+    <script>
+        tailwind.config = { theme: { extend: { colors: { primary: '#4f46e5', secondary: '#64748b', } } } }
+    </script>
 </head>
-<body>
-        <!-- Login Screen -->
-        <div id="loginScreen" class="fixed inset-0 flex items-center justify-center bg-white z-50">
-            <form id="loginForm" class="bg-white p-8 rounded-xl shadow-lg w-full max-w-xs space-y-4">
-                <h2 class="text-xl font-bold mb-4 text-center">Login</h2>
-                <input type="text" name="username" placeholder="Username" class="w-full border rounded p-2" required />
-                <input type="password" name="password" placeholder="Password" class="w-full border rounded p-2" required />
-                <div id="loginError" class="text-red-500 text-xs hidden"></div>
-                <button type="submit" class="w-full bg-primary text-white font-bold py-2 rounded">Login</button>
+<body class="bg-slate-50 text-slate-800 h-[100dvh] w-full flex flex-col overflow-hidden">
+
+    <!-- LOADING OVERLAY -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/60 flex flex-col items-center justify-center hidden backdrop-blur-sm">
+        <div class="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent mb-3"></div>
+        <div class="text-white font-bold text-sm" id="loadingText">Syncing...</div>
+    </div>
+
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen" class="fixed inset-0 bg-slate-900 flex items-center justify-center p-6">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-8 shadow-2xl">
+            <div class="text-center mb-8">
+                <div class="inline-flex bg-primary/10 p-4 rounded-xl mb-4">
+                    <i class="ph-fill ph-kanban text-4xl text-primary"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-800" id="loginTitle">LeadFlow</h1>
+                <p class="text-slate-500 text-sm mt-1">Please sign in</p>
+            </div>
+            <form onsubmit="app.handleLogin(event)">
+                <div class="space-y-4">
+                    <div><label class="block text-sm font-semibold text-slate-700 mb-1.5">Username / ID</label><input type="text" name="username" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none transition" required></div>
+                    <div><label class="block text-sm font-semibold text-slate-700 mb-1.5">Password</label><input type="password" name="password" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none transition" required></div>
+                </div>
+                <p id="loginError" class="text-red-500 text-sm mt-3 text-center hidden">Invalid credentials</p>
+                <button type="submit" class="w-full bg-primary text-white font-bold text-lg py-3.5 rounded-xl shadow-lg shadow-primary/30 active:scale-[0.98] transition mt-8">Sign In</button>
             </form>
         </div>
+    </div>
 
-        <!-- Main App Content -->
-        <div id="appContent" class="hidden flex flex-col min-h-screen">
-            <header class="p-4 bg-primary text-white font-bold flex items-center">
-                <span id="appTitleDisplay">LeadFlow</span>
-                <span class="ml-auto" id="currentUserDisplay"></span>
-            </header>
-            <main class="flex-1 p-4" id="boardContainer"></main>
+    <!-- MAIN APP CONTENT -->
+    <div id="appContent" class="hidden h-full flex-col">
+        <header class="bg-white border-b border-slate-200 px-4 py-3 flex justify-between items-center shadow-sm z-20 shrink-0">
+            <div class="flex items-center gap-3">
+                <button onclick="ui.toggleMenu(true)" class="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg active:bg-slate-200 transition"><i class="ph-bold ph-list text-2xl"></i></button>
+                <div class="flex items-center gap-2"><div class="bg-primary/10 p-1.5 rounded-lg"><i class="ph-fill ph-kanban text-lg text-primary"></i></div><h1 id="appTitleDisplay" class="text-lg font-bold tracking-tight text-slate-900">LeadFlow</h1></div>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="currentUserDisplay" class="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded hidden md:block"></span>
+                <button onclick="app.sync()" class="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition" title="Force Sync"><i class="ph-bold ph-arrows-clockwise text-xl"></i></button>
+            </div>
+        </header>
+
+        <!-- Mobile Tabs -->
+        <nav id="kanbanTabs" class="md:hidden bg-white border-b border-slate-200 py-2 overflow-x-auto no-scrollbar shrink-0 z-10"><div class="flex px-4 gap-3 min-w-max" id="mobileTabs"></div></nav>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-hidden relative w-full">
+            <div id="kanbanView" class="h-full w-full">
+                <div class="kanban-board h-full w-full p-4 md:p-6 md:gap-6">
+                    <div id="boardContainer" class="h-full w-full flex md:gap-6"></div>
+                </div>
+            </div>
+            <div id="tableView" class="h-full w-full hidden overflow-auto bg-white">
+                <div class="min-w-[800px] p-6">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider">
+                                <th class="pb-3 font-bold pl-4">Name</th>
+                                <th class="pb-3 font-bold">Contact</th>
+                                <th class="pb-3 font-bold">Status</th>
+                                <th class="pb-3 font-bold">Interest</th>
+                                <th class="pb-3 font-bold">Source</th>
+                                <th class="pb-3 font-bold">Assigned</th>
+                                <th class="pb-3 font-bold text-right pr-4">Value</th>
+                                <th class="pb-3 font-bold w-10"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody" class="text-sm text-slate-700 divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <button onclick="ui.toggleModal(true)" class="fixed bottom-6 right-6 md:bottom-8 md:right-8 bg-primary hover:bg-indigo-600 text-white w-14 h-14 rounded-full shadow-lg shadow-indigo-500/30 flex items-center justify-center transition transform active:scale-95 z-30"><i class="ph-bold ph-plus text-2xl"></i></button>
+    </div>
+
+    <!-- SIDE MENU -->
+    <div id="sideMenu" class="fixed inset-0 z-[60] hidden" role="dialog">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onclick="ui.toggleMenu(false)"></div>
+        <div class="menu-panel absolute inset-y-0 left-0 w-[85%] max-w-sm bg-white shadow-2xl flex flex-col">
+            <div class="p-6 border-b border-slate-100 bg-slate-50">
+                <h2 class="text-2xl font-bold text-slate-800 mb-1">Menu</h2>
+                <div class="flex items-center gap-2 text-sm text-slate-500"><i class="ph-fill ph-user"></i> <span id="menuUserName">User</span><span id="menuUserRole" class="text-xs bg-slate-200 px-1.5 py-0.5 rounded font-bold uppercase">Role</span></div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 space-y-6">
+                <div>
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2"><i class="ph-bold ph-squares-four"></i> Views</h3>
+                    <div class="space-y-1">
+                        <button onclick="app.switchViewMode('kanban')" class="w-full text-left px-4 py-2.5 rounded-lg flex items-center gap-3 hover:bg-slate-50 transition text-slate-700"><i class="ph-bold ph-kanban text-lg"></i> <span class="font-medium">Kanban Board</span></button>
+                        <button onclick="app.switchViewMode('table')" class="w-full text-left px-4 py-2.5 rounded-lg flex items-center gap-3 hover:bg-slate-50 transition text-slate-700"><i class="ph-bold ph-table text-lg"></i> <span class="font-medium">Leads Table</span></button>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="ph-bold ph-calendar-check"></i> Follow Ups</h3>
+                    <div class="space-y-4">
+                        <div class="bg-red-50 rounded-xl border border-red-100 overflow-hidden"><div class="px-4 py-3 bg-red-100/50 flex justify-between items-center border-b border-red-100"><span class="text-red-800 font-bold text-sm">Overdue</span><span id="count-overdue" class="bg-white text-red-600 text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">0</span></div><div id="list-overdue" class="divide-y divide-red-100"></div></div>
+                        <div class="bg-amber-50 rounded-xl border border-amber-100 overflow-hidden"><div class="px-4 py-3 bg-amber-100/50 flex justify-between items-center border-b border-amber-100"><span class="text-amber-800 font-bold text-sm">Today</span><span id="count-today" class="bg-white text-amber-600 text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">0</span></div><div id="list-today" class="divide-y divide-amber-100"></div></div>
+                        <div class="bg-blue-50 rounded-xl border border-blue-100 overflow-hidden"><div class="px-4 py-3 bg-blue-100/50 flex justify-between items-center border-b border-blue-100"><span class="text-blue-800 font-bold text-sm">Upcoming</span><span id="count-upcoming" class="bg-white text-blue-600 text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">0</span></div><div id="list-upcoming" class="divide-y divide-blue-100 max-h-60 overflow-y-auto"></div></div>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2 mt-8"><i class="ph-bold ph-gear"></i> Settings</h3>
+                    <div class="space-y-3">
+                        <button onclick="ui.toggleLogs(true)" class="w-full text-left px-4 py-3 hover:bg-slate-50 transition active:bg-slate-100 flex justify-between items-center rounded-xl border border-slate-100 group shadow-sm bg-white"><div class="flex items-center gap-3"><div class="bg-slate-100 p-2 rounded-lg text-slate-600 group-hover:bg-primary/10 group-hover:text-primary transition-colors"><i class="ph-bold ph-list-dashes"></i></div><span class="font-medium text-slate-700">Session Logs</span></div><i class="ph-bold ph-caret-right text-slate-300"></i></button>
+                        <button id="btnUserConfig" onclick="ui.toggleConfig(true)" class="w-full text-left px-4 py-3 hover:bg-slate-50 transition active:bg-slate-100 flex justify-between items-center rounded-xl border border-slate-100 group shadow-sm bg-white"><div class="flex items-center gap-3"><div class="bg-slate-100 p-2 rounded-lg text-slate-600 group-hover:bg-primary/10 group-hover:text-primary transition-colors"><i class="ph-bold ph-user-gear"></i></div><span class="font-medium text-slate-700">User Config & DB</span></div><i class="ph-bold ph-caret-right text-slate-300"></i></button>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-100 text-center"><button onclick="app.logout()" class="text-red-500 font-bold text-sm hover:text-red-600 flex items-center justify-center gap-2 w-full py-2"><i class="ph-bold ph-sign-out"></i> Sign Out</button></div>
         </div>
+    </div>
 
-        <!-- Loading Overlay (must be present for JS to work) -->
-        <div id="loadingOverlay" class="fixed inset-0 bg-white bg-opacity-80 flex items-center justify-center z-[9999] hidden">
-            <div class="text-primary text-2xl font-bold">Loading...</div>
+    <!-- Logs Modal -->
+    <div id="logsModal" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onclick="ui.toggleLogs(false)"></div>
+        <div class="modal-content absolute inset-x-0 bottom-0 md:relative md:inset-auto md:m-auto w-full md:w-[480px] md:h-[85vh] md:max-h-[800px] md:rounded-2xl bg-white shadow-2xl flex flex-col">
+                        <button type="button" onclick="ui.toggleModal(false)" class="absolute top-4 left-4 md:hidden flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 focus:outline-none z-10">
+                            <i class="ph-bold ph-arrow-left text-xl text-primary"></i>
+                        </button>
+                        <button type="button" onclick="ui.toggleMenu(false)" class="absolute top-4 left-4 md:hidden flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 focus:outline-none z-10">
+                            <i class="ph-bold ph-arrow-left text-xl text-primary"></i>
+                        </button>
+                        <button type="button" onclick="ui.toggleLogs(false)" class="absolute top-4 left-4 md:hidden flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 focus:outline-none z-10">
+                            <i class="ph-bold ph-arrow-left text-xl text-primary"></i>
+                        </button>
+            <div class="md:hidden w-full flex justify-center pt-3 pb-1" onclick="ui.toggleLogs(false)"><div class="w-12 h-1.5 bg-slate-200 rounded-full"></div></div>
+            <div class="px-6 py-4 border-b border-slate-100 shrink-0 flex justify-between items-center"><h3 class="text-xl font-bold text-slate-800 flex items-center gap-2"><i class="ph-bold ph-scroll text-primary"></i> Session Logs</h3><button onclick="ui.toggleLogs(false)" class="hidden md:block p-1 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full"><i class="ph-bold ph-x text-lg"></i></button></div>
+            <div class="flex-1 overflow-y-auto p-0 bg-slate-50/50"><div id="logsContainer" class="divide-y divide-slate-100"></div></div>
         </div>
+    </div>
 
-    <!-- Superuser Creation Modal -->
-    <div id="superuserModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
-        <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
-            <h2 class="text-xl font-bold mb-4">Create Superuser Account</h2>
-            <form id="superuserForm" class="space-y-4">
-                <input type="text" id="suName" class="w-full border rounded p-2" placeholder="Full Name" required />
-                <input type="text" id="suUsername" class="w-full border rounded p-2" placeholder="Username" required />
-                <input type="password" id="suPassword" class="w-full border rounded p-2" placeholder="Password" required />
-                <button type="submit" class="w-full bg-primary text-white font-bold py-2 rounded">Create Superuser</button>
-            </form>
+    <!-- User Config / Management Modal -->
+    <div id="configModal" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onclick="ui.toggleConfig(false)"></div>
+        <div class="modal-content absolute inset-x-0 bottom-0 md:relative md:inset-auto md:m-auto w-full md:w-[480px] md:h-auto md:max-h-[90vh] md:rounded-2xl bg-white shadow-2xl flex flex-col">
+                        <button type="button" onclick="ui.toggleConfig(false)" class="absolute top-4 left-4 md:hidden flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 focus:outline-none z-10">
+                            <i class="ph-bold ph-arrow-left text-xl text-primary"></i>
+                        </button>
+            <div class="md:hidden w-full flex justify-center pt-3 pb-1" onclick="ui.toggleConfig(false)"><div class="w-12 h-1.5 bg-slate-200 rounded-full"></div></div>
+            <div class="px-6 py-4 border-b border-slate-100 shrink-0 flex justify-between items-center"><h3 class="text-xl font-bold text-slate-800 flex items-center gap-2"><i class="ph-bold ph-user-gear text-primary"></i> User Config</h3><button onclick="ui.toggleConfig(false)" class="hidden md:block p-1 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full"><i class="ph-bold ph-x text-lg"></i></button></div>
+            <div class="flex-1 overflow-y-auto p-6">
+                <div class="mb-8"><h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Database</h4><form onsubmit="app.handleSaveAppConfig(event)"><div class="space-y-3"><div><label class="block text-xs font-semibold text-slate-500 mb-1">Script URL</label><input type="text" name="dbUrl" id="configDbUrl" class="w-full bg-slate-50 border-slate-200 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 mb-1">App Name</label><input type="text" name="appTitle" id="configAppTitle" class="w-full bg-slate-50 border-slate-200 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"></div><button type="submit" class="w-full bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-700">Save & Sync</button></div></form></div>
+                <div class="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200"><h4 class="text-sm font-bold text-slate-800 mb-3 flex justify-between">Add User <span id="userLimitMsg" class="text-xs font-normal text-slate-500"></span></h4><form onsubmit="app.handleAddUser(event)"><div class="grid grid-cols-2 gap-3 mb-3"><input type="text" name="newUsername" placeholder="ID" required class="w-full bg-white border-slate-200 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"><input type="password" name="newPassword" placeholder="Pwd" required class="w-full bg-white border-slate-200 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"></div><div class="grid grid-cols-2 gap-3 mb-3"><input type="text" name="newName" placeholder="Name" required class="w-full bg-white border-slate-200 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"><select name="newRole" class="w-full bg-white border-slate-200 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"><option value="agent">Agent</option><option value="admin">Admin</option></select></div><button type="submit" class="w-full bg-primary text-white font-bold py-2 rounded-lg text-sm hover:bg-indigo-600 transition shadow-sm">Create User</button></form></div>
+                <div><h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Users</h4><div id="userListContainer" class="space-y-3"></div></div>
+            </div>
         </div>
     </div>
 
     <!-- Add/Edit Lead Modal -->
     <div id="leadModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
-        <!-- ...existing code for lead modal... -->
-    </div>
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onclick="ui.toggleModal(false)"></div>
+        <div class="modal-content absolute inset-x-0 bottom-0 md:relative md:inset-auto md:m-auto w-full md:w-[480px] md:h-[85vh] md:max-h-[800px] md:rounded-2xl bg-white shadow-2xl flex flex-col">
+            <div class="md:hidden w-full flex justify-center pt-3 pb-1" onclick="ui.toggleModal(false)"><div class="w-12 h-1.5 bg-slate-200 rounded-full"></div></div>
+            <div class="px-6 pt-4 pb-0 border-b border-slate-100 shrink-0">
+                <div class="flex justify-between items-center mb-4"><h3 id="modalTitle" class="text-xl font-bold text-slate-800">New Lead</h3><button onclick="ui.toggleModal(false)" class="hidden md:block p-1 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full"><i class="ph-bold ph-x text-lg"></i></button></div>
+                <div class="flex gap-6 overflow-x-auto no-scrollbar"><button onclick="app.switchModalTab('info')" id="tab-btn-info" class="tab-active pb-3 font-semibold text-sm transition-colors whitespace-nowrap">Info</button><button onclick="app.switchModalTab('activity')" id="tab-btn-activity" class="tab-inactive pb-3 font-semibold text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap">Activity</button><button onclick="app.switchModalTab('contact')" id="tab-btn-contact" class="tab-inactive pb-3 font-semibold text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap">Contact</button></div>
+            </div>
+            <div class="flex-1 overflow-y-auto relative bg-slate-50/50">
+                <div id="view-info" class="p-6">
+                    <form id="leadForm" onsubmit="app.handleFormSubmit(event)">
+                        <input type="hidden" name="leadId" id="leadIdInput">
+                        <div class="space-y-5">
+                            <div><label class="block text-sm font-semibold text-slate-700 mb-1.5">Lead Name</label><input type="text" name="name" required class="w-full bg-white border-slate-200 border rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition" placeholder="e.g. Acme Corp"></div>
+                            
+                            <!-- INTEREST (Autocomplete + Tags) -->
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1.5">Interest</label>
+                                <div class="relative">
+                                    <input type="text" id="interestInput" class="w-full bg-white border-slate-200 border rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none transition" placeholder="Search or add interest..." autocomplete="off">
+                                    <div id="interestSuggestions" class="suggestions-box hidden"></div>
+                                </div>
+                                <div id="interestTags" class="flex flex-wrap gap-2 mt-2"></div>
+                                <input type="hidden" name="interest" id="interestHidden">
+                            </div>
 
-    <!-- SIDE MENU -->
-    <div id="sideMenu" class="fixed inset-0 z-[60] hidden" role="dialog">
-        <!-- ...existing code for side menu... -->
-    </div>
-
-    <!-- Logs Modal -->
-    <div id="logsModal" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true">
-        <!-- ...existing code for logs modal... -->
-    </div>
-
-    <!-- User Config / Management Modal (moved to end of body for guaranteed z-index) -->
-    <div id="configModal" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true">
-        <!-- ...existing code for config modal... -->
+                            <div class="grid grid-cols-2 gap-4"><div><label class="block text-sm font-semibold text-slate-700 mb-1.5">Value</label><div class="relative"><span class="absolute left-4 top-3.5 text-slate-400">₹</span><input type="number" name="value" id="leadValue" min="0" step="0.01" class="w-full bg-white border-slate-200 border rounded-xl pl-8 pr-4 py-3 focus:ring-2 focus:ring-primary outline-none" placeholder="0"></div></div><div><label class="block text-sm font-semibold text-slate-700 mb-1.5">Status</label><select name="status" id="formStatusSelect" class="w-full bg-white border-slate-200 border rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none appearance-none"></select></div></div>
+                            
+                            <!-- LOCATION (Autocomplete) -->
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1.5">Location</label>
+                                <div class="relative">
+                                    <input type="text" name="location" id="locationInput" class="w-full bg-white border-slate-200 border rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none transition" placeholder="City, Area..." autocomplete="off">
+                                    <div id="locationSuggestions" class="suggestions-box hidden"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- SOURCE (Autocomplete) -->
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1.5">Lead Source</label>
+                                <div class="relative">
+                                    <input type="text" name="source" id="sourceInput" class="w-full bg-white border-slate-200 border rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none transition" placeholder="e.g. LinkedIn, Referral..." autocomplete="off">
+                                    <div id="sourceSuggestions" class="suggestions-box hidden"></div>
+                                </div>
+                            </div>
+                            
+                            <div><label class="block text-sm font-semibold text-slate-700 mb-1.5">Assigned To</label>
+                                <select name="assignedTo" id="assignedToSelect" class="w-full bg-white border-slate-200 border rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none transition">
+                                    <option value="">Select User</option>
+                                </select>
+                            </div>
+                            <div><label class="block text-sm font-semibold text-slate-700 mb-1.5">Contact Details</label><input type="email" name="email" class="w-full bg-white border-slate-200 border rounded-xl px-4 py-3 mb-3 focus:ring-2 focus:ring-primary outline-none" placeholder="Email"><div class="relative flex items-stretch"><input type="text" name="phonePrefix" class="w-16 bg-slate-100 border-y border-l border-slate-200 rounded-l-xl text-center text-slate-700 font-medium text-sm focus:ring-2 focus:ring-primary focus:z-10 outline-none transition" value="+91" placeholder="+91"><input type="tel" name="phone" class="flex-1 bg-white border border-slate-200 rounded-r-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none transition" placeholder="98765 43210" pattern="\d{10}" maxlength="10" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10)"></div></div>
+                            <div><label class="block text-sm font-semibold text-slate-700 mb-1.5">Notes</label><textarea name="notes" rows="3" class="w-full bg-white border-slate-200 border rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none resize-none"></textarea></div>
+                        </div>
+                    </form>
+                </div>
+                <div id="view-activity" class="hidden p-6"><div id="activityTimeline" class="space-y-0"></div></div>
+                <div id="view-contact" class="hidden p-6 h-full"><div id="contactActions" class="h-full flex flex-col justify-center items-center gap-6"></div></div>
+            </div>
+            <div id="modalFooter" class="p-4 border-t border-slate-100 shrink-0 md:rounded-b-2xl bg-white pb-8 md:pb-4">
+                <div id="footer-info"><button id="submitBtn" type="button" onclick="document.getElementById('leadForm').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))" class="w-full bg-primary text-white font-bold text-lg py-3.5 rounded-xl shadow-lg shadow-primary/30 active:scale-[0.98] transition">Save Lead</button></div>
+                <div id="footer-activity" class="hidden">
+                    <form onsubmit="app.handleAddActivity(event)" class="flex gap-2 items-center">
+                        <select name="type" id="activityTypeSelect" onchange="app.handleTypeChange(this)" class="bg-slate-50 border border-slate-200 rounded-xl px-2 py-3 outline-none focus:ring-2 focus:ring-primary text-sm min-w-[100px] font-medium text-slate-700"><option value="call">Call</option><option value="whatsapp">WhatsApp</option><option value="meeting">Meet</option><option value="follow_up">Next Follow-Up</option><option value="file">Add File</option><option value="note">Note</option></select>
+                        <div class="flex-1 relative">
+                            <input type="text" id="activityInputText" name="noteText" required placeholder="Log details..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary">
+                            <input type="date" id="activityInputDate" name="noteDate" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary hidden">
+                             <input type="file" id="activityInputFile" name="noteFile" class="w-full text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-xl file:mr-4 file:py-3 file:px-4 file:rounded-l-xl file:border-0 file:text-sm file:font-semibold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 hidden">
+                        </div>
+                        <button type="submit" class="bg-slate-800 text-white rounded-xl w-12 h-[46px] flex items-center justify-center hover:bg-slate-700 active:scale-95 transition shrink-0 shadow-sm"><i class="ph-bold ph-paper-plane-right text-xl"></i></button>
+                    </form>
+                </div>
+                <div id="footer-contact" class="hidden"></div>
+            </div>
+        </div>
     </div>
 
     <script>
-        tailwind.config = { theme: { extend: { colors: { primary: '#4f46e5', secondary: '#64748b', } } } }
-    </script>
-    <script>
-        // Main app logic (LeadStore, App, ui, DOMContentLoaded, etc.)
         class LeadStore {
             constructor() {
                 this.subscribers = [];
@@ -91,88 +313,39 @@
                 this.users = data.users || [];
                 this.interests = data.interests || []; 
                 this.settings = data.settings || { locations: [], sources: [] };
-                // Only show modal for superuser creation if users is empty (handled below)
+                
+                if (this.users.length === 0) {
+                    this.users.push({ id: 'super-01', username: 'nox1', password: '1233', role: 'superuser', name: 'Super User' });
+                    this.saveLocal();
+                }
             }
+
             subscribe(callback) { this.subscribers.push(callback); }
             notify() { this.subscribers.forEach(cb => cb(this.state)); }
             generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
             loadLocal() { try { return JSON.parse(localStorage.getItem(this.STORAGE_KEY)) || {}; } catch(e) { return {}; } }
+            
             saveLocal() {
                 const data = { leads: this.state, logs: this.logs, config: this.config, users: this.users, interests: this.interests, settings: this.settings };
                 localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
                 this.notify();
             }
+
             async syncWithCloud() {
-                if (!this.config.dbUrl) {
-                    console.error('syncWithCloud: No dbUrl configured');
-                    document.getElementById('loginError').textContent = 'Debug: No Script URL (dbUrl) configured.';
-                    document.getElementById('loginError').classList.remove('hidden');
-                    return;
-                }
-                ui.showLoading(true);
-                try {
-                    console.log('syncWithCloud: Fetching from', this.config.dbUrl);
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-                    const response = await fetch(this.config.dbUrl, { method: 'GET', redirect: 'follow', credentials: 'omit', signal: controller.signal });
-                    clearTimeout(timeoutId);
-                    if (!response.ok) throw new Error('Network response was not ok: ' + response.status);
-                    const cloudData = await response.json();
-                    console.log('syncWithCloud: Received data', cloudData);
-                    if (cloudData.leads) this.state = cloudData.leads;
-                    if (cloudData.users && cloudData.users.length > 0) {
-                        this.users = cloudData.users;
-                    } else {
-                        console.error('syncWithCloud: No users array or empty users from backend', cloudData.users);
-                        document.getElementById('loginError').textContent = 'Debug: No users returned from backend.';
-                        document.getElementById('loginError').classList.remove('hidden');
-                    }
-                    if (cloudData.logs) this.logs = cloudData.logs;
-                    if (cloudData.interests) this.interests = cloudData.interests;
-                    if (cloudData.settings) this.settings = cloudData.settings; 
-                    this.saveLocal(); 
-                } catch (e) {
-                    console.error("Sync Read Failed", e);
-                    document.getElementById('loginError').textContent = 'Debug: Sync failed - ' + e;
-                    document.getElementById('loginError').classList.remove('hidden');
-                } finally { ui.showLoading(false); }
-            }
-            async pushToCloud() {
                 if (!this.config.dbUrl) return;
                 ui.showLoading(true);
                 try {
-                    const payload = { action: 'save_all', leads: this.state, users: this.users, logs: this.logs };
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-                    await fetch(this.config.dbUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload), signal: controller.signal });
-                    clearTimeout(timeoutId);
-                } catch (e) { console.error("Sync Write Failed", e); } finally { ui.showLoading(false); }
-            }
-            save() { this.saveLocal(); this.pushToCloud(); }
-            getCounts() { return { admins: this.users.filter(u => u.role === 'admin').length, agents: this.users.filter(u => u.role === 'agent').length }; }
-            addUser(user) { this.users.push({id: this.generateId(), ...user}); this.save(); }
-            // Only one deleteUser method should exist, keep the latest/most correct one
-            deleteUser(id) {
-                const u = this.users.find(x => x.id === id);
-                if (u && u.role === 'superuser') return false;
-                this.users = this.users.filter(x => x.id !== id);
-                this.save();
-                return true;
-            }
-            async saveConfig(newConfig) {
-                this.config = { ...this.config, ...newConfig };
-                this.saveLocal();
-                // If superuser sets dbUrl or appTitle, save to backend for all users
-                if ((this.config.dbUrl || this.config.appTitle) && window.app && window.app.currentUser && window.app.currentUser.role === 'superuser') {
-                    try {
-                        await fetch(this.config.dbUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'text/plain' },
-                            body: JSON.stringify({ action: 'save_script_url', scriptUrl: this.config.dbUrl, appTitle: this.config.appTitle })
-                        });
-                    } catch (e) { /* ignore */ }
-                }
-                if (this.config.dbUrl) this.syncWithCloud();
+                    const response = await fetch(this.config.dbUrl, { method: 'GET', redirect: 'follow', credentials: 'omit' });
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    const cloudData = await response.json();
+                    if (cloudData.leads) this.state = cloudData.leads;
+                    if (cloudData.users && cloudData.users.length > 0) this.users = cloudData.users;
+                    if (cloudData.logs) this.logs = cloudData.logs;
+                    if (cloudData.interests) this.interests = cloudData.interests;
+                    if (cloudData.settings) this.settings = cloudData.settings; 
+                    
+                    this.saveLocal(); 
+                } catch (e) { console.error("Sync Read Failed", e); } finally { ui.showLoading(false); }
             }
             async pushToCloud() {
                 if (!this.config.dbUrl) return;
@@ -186,21 +359,7 @@
             getCounts() { return { admins: this.users.filter(u => u.role === 'admin').length, agents: this.users.filter(u => u.role === 'agent').length }; }
             addUser(user) { this.users.push({id: this.generateId(), ...user}); this.save(); }
             deleteUser(id) { const u = this.users.find(x => x.id === id); if (u && u.role === 'superuser') return false; this.users = this.users.filter(x => x.id !== id); this.save(); return true; }
-            async saveConfig(newConfig) {
-                this.config = { ...this.config, ...newConfig };
-                this.saveLocal();
-                // If superuser sets dbUrl or appTitle, save to backend for all users
-                if ((this.config.dbUrl || this.config.appTitle) && window.app && window.app.currentUser && window.app.currentUser.role === 'superuser') {
-                    try {
-                        await fetch(this.config.dbUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'text/plain' },
-                            body: JSON.stringify({ action: 'save_script_url', scriptUrl: this.config.dbUrl, appTitle: this.config.appTitle })
-                        });
-                    } catch (e) { /* ignore */ }
-                }
-                if (this.config.dbUrl) this.syncWithCloud();
-            }
+            saveConfig(newConfig) { this.config = { ...this.config, ...newConfig }; this.saveLocal(); if (this.config.dbUrl) this.syncWithCloud(); }
             log(msg, user) { const prefix = user ? `${user.name} (${user.role}): ` : 'System: '; this.logs.unshift({ id: this.generateId(), timestamp: new Date().toISOString(), message: prefix + msg }); if (this.logs.length > 50) this.logs.pop(); this.save(); }
             add(data, user) { this.state.push({ id: this.generateId(), createdAt: new Date().toISOString(), activities: [], ...data }); this.log(`Created lead ${data.name}`, user); this.save(); }
             update(id, data, user) { const idx = this.state.findIndex(l => l.id === id); if (idx !== -1) { this.state[idx] = { ...this.state[idx], ...data }; this.log(`Updated ${data.name}`, user); this.save(); } }
@@ -211,19 +370,7 @@
         }
 
         class App {
-            constructor(store) {
-                this.store = store || window.store;
-                // Default Kanban status columns
-                this.statusConfig = [
-                    { id: "New", color: "bg-blue-400" },
-                    { id: "Contacted", color: "bg-yellow-400" },
-                    { id: "Qualified", color: "bg-green-400" },
-                    { id: "Lost", color: "bg-red-400" }
-                ];
-                this.activeView = "kanban";
-                this.activeMobileTab = this.statusConfig[0].id;
-            }
-            // Render the leads table view
+                                                // Render the leads table view
                                                 renderTable(leads) {
                                                     const tbody = document.getElementById('tableBody');
                                                     if (!tbody) return;
@@ -337,7 +484,28 @@
                 // Switch tab if specified
                 if (tab) this.switchModalTab(tab);
             }
-
+            constructor() {
+                this.store = new LeadStore();
+                this.currentUser = null;
+                this.statusConfig = [
+                    { id: 'New', color: 'bg-blue-500', text: 'text-blue-700', bg: 'bg-blue-50' },
+                    { id: 'Contacted', color: 'bg-yellow-500', text: 'text-yellow-700', bg: 'bg-yellow-50' },
+                    { id: 'Proposal', color: 'bg-purple-500', text: 'text-purple-700', bg: 'bg-purple-50' },
+                    { id: 'Won', color: 'bg-green-500', text: 'text-green-700', bg: 'bg-green-50' },
+                    { id: 'Lost', color: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50' }
+                ];
+                this.activeMobileTab = this.statusConfig[0].id;
+                this.currentModalTab = 'info';
+                this.activeView = 'kanban'; 
+                this.selectedInterests = []; 
+                
+                this.store.subscribe((data) => {
+                    if (this.currentUser) {
+                        this.render(data);
+                        if(document.getElementById('sideMenu').classList.contains('open')) this.renderFollowUps();
+                    }
+                });
+            }
 
             // --- AUTOCOMPLETE LOGIC (Generic) ---
             setupAutocomplete(inputId, suggestionsId, dataList, onSelect) {
@@ -449,35 +617,9 @@
 
             handleLogin(e) {
                 e.preventDefault();
-                const loginError = document.getElementById('loginError');
-                // Forced initialization if missing
-                if (!window.store) {
-                    window.store = new LeadStore();
-                    loginError.textContent = 'Debug: Forced creation of window.store.';
-                    loginError.classList.remove('hidden');
-                }
-                if (!window.app) {
-                    window.app = this;
-                    if (!this.store && window.store) {
-                        this.store = window.store;
-                        loginError.textContent = 'Debug: Forced creation of window.app and set this.store = window.store.';
-                    } else {
-                        loginError.textContent = 'Debug: Forced creation of window.app.';
-                    }
-                    loginError.classList.remove('hidden');
-                }
-                let storeToUse = this.store || window.store;
-                if (!storeToUse || !storeToUse.users) {
-                    loginError.textContent = 'App error: User store not loaded. this.store=' + JSON.stringify(this.store) + ', window.store=' + JSON.stringify(window.store);
-                    loginError.classList.remove('hidden');
-                    return;
-                }
-                // Debug output: show users array at login time
-                loginError.textContent = 'Debug: Users at login: ' + JSON.stringify(storeToUse.users);
-                loginError.classList.remove('hidden');
                 const u = e.target.username.value;
                 const p = e.target.password.value;
-                const user = storeToUse.users.find(x => String(x.username) === String(u) && String(x.password) === String(p));
+                const user = this.store.users.find(x => String(x.username) === String(u) && String(x.password) === String(p));
                 if (user) {
                     this.currentUser = user;
                     document.getElementById('loginScreen').classList.add('hidden');
@@ -485,46 +627,13 @@
                     document.getElementById('appContent').classList.add('flex');
                     this.init();
                 } else {
-                    // Try syncing with cloud again in case users were just added
-                    storeToUse.syncWithCloud().then(() => {
-                        const userRetry = storeToUse.users.find(x => String(x.username) === String(u) && String(x.password) === String(p));
-                        if (userRetry) {
-                            this.currentUser = userRetry;
-                            document.getElementById('loginScreen').classList.add('hidden');
-                            document.getElementById('appContent').classList.remove('hidden');
-                            document.getElementById('appContent').classList.add('flex');
-                            this.init();
-                        } else {
-                            loginError.textContent = 'Debug: Users after sync: ' + JSON.stringify(storeToUse.users);
-                            loginError.classList.remove('hidden');
-                        }
-                    });
+                    document.getElementById('loginError').classList.remove('hidden');
                 }
             }
 
             logout() { location.reload(); }
 
             async init() {
-                // Always ensure this.store is set to window.store
-                this.store = window.store;
-                // If dbUrl or appTitle is missing, try to fetch from backend (public endpoint)
-                if (!this.store.config.dbUrl || !this.store.config.appTitle) {
-                    try {
-                        let backendUrl = window.INIT_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbzHItA0cJehn2LiFmHaMDTftl6jPsI1Ffwtd9Gkfoo0c5g_LFBQN1lICHHai3qXn7nZPA/exec';
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-                        const resp = await fetch(backendUrl, { signal: controller.signal });
-                        clearTimeout(timeoutId);
-                        const data = await resp.json();
-                        if (data.settings && data.settings.scriptUrl) {
-                            this.store.config.dbUrl = data.settings.scriptUrl;
-                        }
-                        if (data.settings && data.settings.appTitle) {
-                            this.store.config.appTitle = data.settings.appTitle;
-                        }
-                        this.store.saveLocal();
-                    } catch (e) { /* ignore */ }
-                }
                 this.applyConfig();
                 this.updateUserUI();
                 this.renderTabs();
@@ -534,12 +643,9 @@
                 this.initSettingsAutocomplete();
                 this.populateAssignedToDropdown();
 
-                if (this.currentUser && (this.currentUser.role === 'superuser' || this.currentUser.role === 'admin')) {
-                    const btnUserConfig = document.getElementById('btnUserConfig');
-                    if (btnUserConfig) {
-                        btnUserConfig.classList.remove('hidden');
-                        btnUserConfig.classList.add('flex');
-                    }
+                if (this.currentUser.role === 'superuser' || this.currentUser.role === 'admin') {
+                    document.getElementById('btnUserConfig').classList.remove('hidden');
+                    document.getElementById('btnUserConfig').classList.add('flex');
                 }
 
                 if (this.store.config.dbUrl) {
@@ -559,13 +665,9 @@
 
             sync() { this.store.syncWithCloud(); }
             updateUserUI() {
-                if (!this.currentUser) return;
-                const userDisplay = document.getElementById('currentUserDisplay');
-                if (userDisplay) userDisplay.textContent = this.currentUser.username;
-                const menuUserName = document.getElementById('menuUserName');
-                if (menuUserName) menuUserName.textContent = this.currentUser.name;
-                const menuUserRole = document.getElementById('menuUserRole');
-                if (menuUserRole) menuUserRole.textContent = this.currentUser.role;
+                document.getElementById('currentUserDisplay').textContent = this.currentUser.username;
+                document.getElementById('menuUserName').textContent = this.currentUser.name;
+                document.getElementById('menuUserRole').textContent = this.currentUser.role;
             }
             applyConfig() {
                 const title = this.store.config.appTitle || 'LeadFlow';
@@ -591,11 +693,9 @@
                 document.getElementById('userLimitMsg').textContent = `Admins: ${counts.admins}/2 | Agents: ${counts.agents}/10`;
                 c.innerHTML = this.store.users.map(u => `<div class="flex justify-between items-center p-3 bg-white border border-slate-100 rounded-lg"><div><div class="font-bold text-sm text-slate-800">${u.name} <span class="text-xs text-slate-400">(${u.username})</span></div><div class="text-xs uppercase font-bold text-primary bg-primary/5 w-fit px-1.5 rounded mt-0.5">${u.role}</div></div>${u.role !== 'superuser' ? `<button onclick="app.deleteUser('${u.id}')" class="text-red-400 p-2"><i class="ph-bold ph-trash"></i></button>` : ''}</div>`).join('');
             }
-            async handleSaveAppConfig(e) {
-                // Always ensure this.store is set to window.store
-                this.store = window.store;
+            handleSaveAppConfig(e) {
                 e.preventDefault();
-                await this.store.saveConfig({ appTitle: e.target.appTitle.value, dbUrl: e.target.dbUrl.value });
+                this.store.saveConfig({ appTitle: e.target.appTitle.value, dbUrl: e.target.dbUrl.value });
                 this.applyConfig();
                 alert('Saved');
             }
@@ -825,62 +925,12 @@
             },
             toggleMenu: (s) => { const m = document.getElementById('sideMenu'); if(s) { try { window.app.renderFollowUps(); } catch(e){} m.classList.remove('hidden'); requestAnimationFrame(()=>m.classList.add('open')); } else { m.classList.remove('open'); setTimeout(()=>m.classList.add('hidden'),300); } },
             toggleLogs: (s) => { const m = document.getElementById('logsModal'); if(s) { try { window.app.renderLogs(); } catch(e){} m.classList.remove('hidden'); requestAnimationFrame(()=>m.classList.add('open')); } else { m.classList.remove('open'); setTimeout(()=>m.classList.add('hidden'),300); } },
-            toggleConfig: (s) => {
-                const m = document.getElementById('configModal');
-                if (s) {
-                    try { window.app.renderUserList(); } catch (e) {}
-                    m.classList.remove('hidden');
-                    m.style.display = 'block'; // Force display
-                    requestAnimationFrame(() => m.classList.add('open'));
-                    setTimeout(() => {
-                        if (m.classList.contains('hidden')) {
-                            m.classList.remove('hidden');
-                        }
-                        if (!m.classList.contains('open')) {
-                            m.classList.add('open');
-                        }
-                        m.style.display = 'block';
-                    }, 500);
-                } else {
-                    m.classList.remove('open');
-                    setTimeout(() => {
-                        m.classList.add('hidden');
-                        m.style.display = '';
-                    }, 300);
-                }
-            },
+            toggleConfig: (s) => { const m = document.getElementById('configModal'); if(s) { try { window.app.renderUserList(); } catch(e){} m.classList.remove('hidden'); requestAnimationFrame(()=>m.classList.add('open')); } else { m.classList.remove('open'); setTimeout(()=>m.classList.add('hidden'),300); } },
             showLoading: (s) => { const l = document.getElementById('loadingOverlay'); if(s) l.classList.remove('hidden'); else l.classList.add('hidden'); }
         };
 
-        // Attach ui to window before DOMContentLoaded so it's always available
-        window.ui = ui;
-        document.addEventListener('DOMContentLoaded', function() {
-            const loadingOverlay = document.getElementById('loadingOverlay');
-            loadingOverlay.classList.remove('hidden');
-            setTimeout(() => {
-                const store = new LeadStore();
-                window.app = new App(store);
-                const loginScreen = document.getElementById('loginScreen');
-                const appContent = document.getElementById('appContent');
-                if (store.config.dbUrl) {
-                    store.syncWithCloud().then(() => {
-                        loadingOverlay.classList.add('hidden');
-                        // Always show login screen if no user is logged in
-                        if (loginScreen) loginScreen.classList.remove('hidden');
-                        if (appContent) appContent.classList.add('hidden');
-                    });
-                } else {
-                    // No dbUrl: show config modal and block login until set
-                    loadingOverlay.classList.add('hidden');
-                    if (loginScreen) loginScreen.classList.remove('hidden');
-                    if (appContent) appContent.classList.add('hidden');
-                    // Show config modal automatically
-                    if (window.ui && typeof window.ui.toggleConfig === 'function') {
-                        setTimeout(() => window.ui.toggleConfig(true), 300);
-                    }
-                }
-            }, 0);
-        });
+        // Explictly attach to window
+        window.app = new App();
     </script>
 </body>
 </html>
