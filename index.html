@@ -18,6 +18,11 @@
 </head>
 <body>
 
+        <!-- Loading Overlay (must be present for JS to work) -->
+        <div id="loadingOverlay" class="fixed inset-0 bg-white bg-opacity-80 flex items-center justify-center z-[9999] hidden">
+            <div class="text-primary text-2xl font-bold">Loading...</div>
+        </div>
+
     <!-- Superuser Creation Modal -->
     <div id="superuserModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
         <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
