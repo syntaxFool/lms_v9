@@ -942,9 +942,11 @@
             showLoading: (s) => { const l = document.getElementById('loadingOverlay'); if(s) l.classList.remove('hidden'); else l.classList.add('hidden'); }
         };
 
-        // Explicitly attach to window
-        const store = new LeadStore();
-        window.app = new App(store);
+        // Explicitly attach to window after DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            const store = new LeadStore();
+            window.app = new App(store);
+        });
     </script>
 </body>
 </html>
