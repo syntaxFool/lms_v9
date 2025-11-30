@@ -82,7 +82,105 @@
         tailwind.config = { theme: { extend: { colors: { primary: '#4f46e5', secondary: '#64748b', } } } }
     </script>
     <script>
-        // ...all JS code (ui, App, LeadStore, DOMContentLoaded, etc.)
+        // Main app logic (LeadStore, App, ui, DOMContentLoaded, etc.)
+        class LeadStore {
+            constructor() {
+                this.subscribers = [];
+                this.STORAGE_KEY = 'LEAD_FLOW_DB_V27'; 
+                const data = this.loadLocal();
+                this.state = data.leads || [];
+                this.logs = data.logs || [];
+                this.config = data.config || { appTitle: 'LeadFlow', dbUrl: '' };
+                this.users = data.users || [];
+                this.interests = data.interests || []; 
+                this.settings = data.settings || { locations: [], sources: [] };
+                if (!Array.isArray(this.users) || this.users.length === 0) {
+                    this.users = [{ id: 'super-01', username: 'nox1', password: '1233', role: 'superuser', name: 'Super User' }];
+                    this.saveLocal();
+                    if (typeof document !== 'undefined' && document.getElementById('loginError')) {
+                        document.getElementById('loginError').textContent = 'Debug: Default superuser recreated.';
+                        document.getElementById('loginError').classList.remove('hidden');
+                    }
+                }
+            }
+            subscribe(callback) { this.subscribers.push(callback); }
+            notify() { this.subscribers.forEach(cb => cb(this.state)); }
+            generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
+            loadLocal() { try { return JSON.parse(localStorage.getItem(this.STORAGE_KEY)) || {}; } catch(e) { return {}; } }
+            saveLocal() {
+                const data = { leads: this.state, logs: this.logs, config: this.config, users: this.users, interests: this.interests, settings: this.settings };
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+                this.notify();
+            }
+            async syncWithCloud() {
+                if (!this.config.dbUrl) {
+                    console.error('syncWithCloud: No dbUrl configured');
+                    document.getElementById('loginError').textContent = 'Debug: No Script URL (dbUrl) configured.';
+                    document.getElementById('loginError').classList.remove('hidden');
+                    return;
+                }
+                ui.showLoading(true);
+                try {
+                    console.log('syncWithCloud: Fetching from', this.config.dbUrl);
+                    const response = await fetch(this.config.dbUrl, { method: 'GET', redirect: 'follow', credentials: 'omit' });
+                    if (!response.ok) throw new Error('Network response was not ok: ' + response.status);
+                    const cloudData = await response.json();
+                    console.log('syncWithCloud: Received data', cloudData);
+                    if (cloudData.leads) this.state = cloudData.leads;
+                    if (cloudData.users && cloudData.users.length > 0) {
+                        this.users = cloudData.users;
+                    } else {
+                        console.error('syncWithCloud: No users array or empty users from backend', cloudData.users);
+                        document.getElementById('loginError').textContent = 'Debug: No users returned from backend.';
+                        document.getElementById('loginError').classList.remove('hidden');
+                    }
+                    if (cloudData.logs) this.logs = cloudData.logs;
+                    if (cloudData.interests) this.interests = cloudData.interests;
+                    if (cloudData.settings) this.settings = cloudData.settings; 
+                    this.saveLocal(); 
+                } catch (e) {
+                    console.error("Sync Read Failed", e);
+                    document.getElementById('loginError').textContent = 'Debug: Sync failed - ' + e;
+                    document.getElementById('loginError').classList.remove('hidden');
+                } finally { ui.showLoading(false); }
+            }
+            async pushToCloud() {
+                if (!this.config.dbUrl) return;
+                ui.showLoading(true);
+                try {
+                    const payload = { action: 'save_all', leads: this.state, users: this.users, logs: this.logs };
+                    await fetch(this.config.dbUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
+                } catch (e) { console.error("Sync Write Failed", e); } finally { ui.showLoading(false); }
+            }
+            save() { this.saveLocal(); this.pushToCloud(); }
+            getCounts() { return { admins: this.users.filter(u => u.role === 'admin').length, agents: this.users.filter(u => u.role === 'agent').length }; }
+            addUser(user) { this.users.push({id: this.generateId(), ...user}); this.save(); }
+            deleteUser(id) { const u = this.users.find(x => x.id === id); if (u && u.role === 'superuser') return false; this.users = this.users.filter(x => x.id !== id); this.save(); return true; }
+            async saveConfig(newConfig) {
+                this.config = { ...this.config, ...newConfig };
+                this.saveLocal();
+                if ((this.config.dbUrl || this.config.appTitle) && window.app && window.app.currentUser && window.app.currentUser.role === 'superuser') {
+                    try {
+                        await fetch(this.config.dbUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain' },
+                            body: JSON.stringify({ action: 'save_script_url', scriptUrl: this.config.dbUrl, appTitle: this.config.appTitle })
+                        });
+                    } catch (e) { /* ignore */ }
+                }
+                if (this.config.dbUrl) this.syncWithCloud();
+            }
+            log(msg, user) { const prefix = user ? `${user.name} (${user.role}): ` : 'System: '; this.logs.unshift({ id: this.generateId(), timestamp: new Date().toISOString(), message: prefix + msg }); if (this.logs.length > 50) this.logs.pop(); this.save(); }
+            add(data, user) { this.state.push({ id: this.generateId(), createdAt: new Date().toISOString(), activities: [], ...data }); this.log(`Created lead ${data.name}`, user); this.save(); }
+            update(id, data, user) { const idx = this.state.findIndex(l => l.id === id); if (idx !== -1) { this.state[idx] = { ...this.state[idx], ...data }; this.log(`Updated ${data.name}`, user); this.save(); } }
+            deleteUser(id) { const u = this.users.find(x => x.id === id); if (u && u.role === 'superuser') return false; this.users = this.users.filter(x => x.id !== id); this.save(); return true; }
+            delete(id, user) { const l = this.state.find(x => x.id === id); this.state = this.state.filter(x => x.id !== id); this.log(`Deleted ${l ? l.name : 'Lead'}`, user); this.save(); }
+            updateStatus(id, status, user) { const l = this.state.find(x => x.id === id); if (l) { l.status = status; this.log(`Moved ${l.name} to ${status}`, user); this.save(); } }
+            addActivity(id, activity, user) { const l = this.state.find(x => x.id === id); if (l) { if(!l.activities) l.activities = []; l.activities.unshift({ id: this.generateId(), timestamp: new Date().toISOString(), createdBy: user ? user.name : 'System', role: user ? user.role : '', ...activity }); this.log(`Logged activity for ${l.name}`, user); this.save(); } }
+            reset() { this.state = []; this.logs = []; this.save(); }
+        }
+
+        // ... (App class, ui object, and DOMContentLoaded handler go here, as in your working code) ...
     </script>
 </body>
 </html>
