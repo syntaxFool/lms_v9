@@ -393,7 +393,19 @@
         }
 
         class App {
-                                                // Render the leads table view
+            constructor(store) {
+                this.store = store || window.store;
+                // Default Kanban status columns
+                this.statusConfig = [
+                    { id: "New", color: "bg-blue-400" },
+                    { id: "Contacted", color: "bg-yellow-400" },
+                    { id: "Qualified", color: "bg-green-400" },
+                    { id: "Lost", color: "bg-red-400" }
+                ];
+                this.activeView = "kanban";
+                this.activeMobileTab = this.statusConfig[0].id;
+            }
+            // Render the leads table view
                                                 renderTable(leads) {
                                                     const tbody = document.getElementById('tableBody');
                                                     if (!tbody) return;
