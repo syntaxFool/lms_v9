@@ -367,11 +367,11 @@
             getCounts() { return { admins: this.users.filter(u => u.role === 'admin').length, agents: this.users.filter(u => u.role === 'agent').length }; }
             addUser(user) { this.users.push({id: this.generateId(), ...user}); this.save(); }
             deleteUser(id) { const u = this.users.find(x => x.id === id); if (u && u.role === 'superuser') return false; this.users = this.users.filter(x => x.id !== id); this.save(); return true; }
-            async saveConfig(newConfig) {
+            saveConfig(newConfig) {
                 this.config = { ...this.config, ...newConfig };
                 this.saveLocal();
-                await this.pushToCloud();
-                if (this.config.dbUrl) await this.syncWithCloud();
+                // No backend sync, just update UI
+                if(window.app && typeof window.app.applyConfig==='function'){window.app.applyConfig();}
             }
             log(msg, user) { const prefix = user ? `${user.name} (${user.role}): ` : 'System: '; this.logs.unshift({ id: this.generateId(), timestamp: new Date().toISOString(), message: prefix + msg }); if (this.logs.length > 50) this.logs.pop(); this.save(); }
             add(data, user) {
@@ -810,12 +810,12 @@
                 document.getElementById('userLimitMsg').textContent = `Admins: ${counts.admins}/2 | Agents: ${counts.agents}/10`;
                 c.innerHTML = this.store.users.map(u => `<div class="flex justify-between items-center p-3 bg-white border border-slate-100 rounded-lg"><div><div class="font-bold text-sm text-slate-800">${u.name} <span class="text-xs text-slate-400">(${u.username})</span></div><div class="text-xs uppercase font-bold text-primary bg-primary/5 w-fit px-1.5 rounded mt-0.5">${u.role}</div></div>${u.role !== 'superuser' ? `<button onclick="app.deleteUser('${u.id}')" class="text-red-400 p-2"><i class="ph-bold ph-trash"></i></button>` : ''}</div>`).join('');
             }
-            async handleSaveAppConfig(e) {
+            handleSaveAppConfig(e) {
                 e.preventDefault();
-                await this.store.saveConfig({ appTitle: e.target.appTitle.value, dbUrl: e.target.dbUrl.value });
+                this.store.saveConfig({ appTitle: e.target.appTitle.value, dbUrl: e.target.dbUrl.value });
                 this.applyConfig();
                 if(window.app && typeof window.app.renderLeaderboard==='function'){window.app.renderLeaderboard();}
-                alert('Saved & Synced');
+                alert('Saved (local only)');
             }
 
             handleFormSubmit(e) {
