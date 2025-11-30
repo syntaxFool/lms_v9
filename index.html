@@ -621,7 +621,8 @@
                 this.currentModalTab = 'info';
                 this.activeView = 'kanban'; 
                 this.selectedInterests = []; 
-                
+                // Always update login card/app title on construction
+                if (typeof this.applyConfig === 'function') this.applyConfig();
                 this.store.subscribe((data) => {
                     if (this.currentUser) {
                         this.render(data);
@@ -1074,11 +1075,15 @@
 
         // Explictly attach to window
         window.app = new App();
-            document.addEventListener('DOMContentLoaded', function() {
-                if (window.app && typeof window.app.renderLeaderboard === 'function') {
-                    window.app.renderLeaderboard();
-                }
-            });
+        // Always update login card/app title on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.app && typeof window.app.applyConfig === 'function') {
+                window.app.applyConfig();
+            }
+            if (window.app && typeof window.app.renderLeaderboard === 'function') {
+                window.app.renderLeaderboard();
+            }
+        });
     </script>
 </body>
 </html>
