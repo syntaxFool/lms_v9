@@ -17,6 +17,25 @@
     </style>
 </head>
 <body>
+        <!-- Login Screen -->
+        <div id="loginScreen" class="fixed inset-0 flex items-center justify-center bg-white z-50">
+            <form id="loginForm" class="bg-white p-8 rounded-xl shadow-lg w-full max-w-xs space-y-4">
+                <h2 class="text-xl font-bold mb-4 text-center">Login</h2>
+                <input type="text" name="username" placeholder="Username" class="w-full border rounded p-2" required />
+                <input type="password" name="password" placeholder="Password" class="w-full border rounded p-2" required />
+                <div id="loginError" class="text-red-500 text-xs hidden"></div>
+                <button type="submit" class="w-full bg-primary text-white font-bold py-2 rounded">Login</button>
+            </form>
+        </div>
+
+        <!-- Main App Content -->
+        <div id="appContent" class="hidden flex flex-col min-h-screen">
+            <header class="p-4 bg-primary text-white font-bold flex items-center">
+                <span id="appTitleDisplay">LeadFlow</span>
+                <span class="ml-auto" id="currentUserDisplay"></span>
+            </header>
+            <main class="flex-1 p-4" id="boardContainer"></main>
+        </div>
 
         <!-- Loading Overlay (must be present for JS to work) -->
         <div id="loadingOverlay" class="fixed inset-0 bg-white bg-opacity-80 flex items-center justify-center z-[9999] hidden">
