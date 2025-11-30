@@ -370,6 +370,30 @@
         }
 
         class App {
+                                                            // --- LEAD SCORING & TEMPERATURE ---
+                                                            getLeadScores(lead) {
+                                                                // Quality: based on value, interest, assignedTo, etc.
+                                                                let quality = 0;
+                                                                if (lead.value && lead.value > 100000) quality += 3;
+                                                                else if (lead.value && lead.value > 50000) quality += 2;
+                                                                else if (lead.value && lead.value > 0) quality += 1;
+                                                                if (lead.interest && lead.interest.length > 0) quality += 1;
+                                                                if (lead.assignedTo) quality += 1;
+                                                                // Engagement: based on activities (calls, WhatsApp, follow-ups)
+                                                                let engagement = 0;
+                                                                if (Array.isArray(lead.activities)) {
+                                                                    engagement += lead.activities.filter(a => a.type === 'call').length * 2;
+                                                                    engagement += lead.activities.filter(a => a.type === 'whatsapp').length * 2;
+                                                                    engagement += lead.activities.filter(a => a.type === 'follow_up').length;
+                                                                    engagement += lead.activities.length * 0.5; // general activity
+                                                                }
+                                                                // Temperature: Hot, Warm, Cold
+                                                                let temp = 'Cold', tempColor = 'bg-blue-200 text-blue-700', tempIcon = 'ph-thermometer-cold';
+                                                                const total = quality + engagement;
+                                                                if (total >= 7) { temp = 'Hot'; tempColor = 'bg-red-200 text-red-700'; tempIcon = 'ph-thermometer-hot'; }
+                                                                else if (total >= 4) { temp = 'Warm'; tempColor = 'bg-amber-200 text-amber-700'; tempIcon = 'ph-thermometer-simple'; }
+                                                                return { quality, engagement, temp, tempColor, tempIcon };
+                                                            }
                                                 // Render the leads table view
                                                 renderTable(leads) {
                                                     const tbody = document.getElementById('tableBody');
@@ -812,6 +836,7 @@
             }
 
             createCardHTML(lead) {
+                                const scores = this.getLeadScores(lead);
                 const idx = this.statusConfig.findIndex(s => s.id === lead.status);
                 const prev = idx > 0 ? this.statusConfig[idx-1].id : null;
                 const next = idx < this.statusConfig.length-1 ? this.statusConfig[idx+1].id : null;
@@ -826,7 +851,14 @@
 
                 return `
                     <div onclick="app.editLead('${lead.id}')" class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 active:scale-[0.99] transition-transform cursor-pointer">
-                        <div class="flex justify-between items-start mb-2"><h3 class="font-bold text-slate-800 line-clamp-1 text-lg">${this.escapeHtml(lead.name)}</h3><div class="flex gap-1 -mr-2 -mt-2">${delBtn}</div></div>
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-slate-800 line-clamp-1 text-lg">${this.escapeHtml(lead.name)}</h3>
+                            <div class="flex gap-1 -mr-2 -mt-2">${delBtn}</div>
+                        </div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${scores.tempColor}"><i class="ph-bold ${scores.tempIcon}"></i> ${scores.temp}</span>
+                            <span class="text-xs text-slate-400">Q:${scores.quality} E:${scores.engagement}</span>
+                        </div>
                         ${interestHTML}
                         <div class="text-slate-500 font-medium text-sm mb-3">${this.formatCurrency(lead.value)}</div>
                         <div class="flex flex-wrap gap-2 mb-3">
