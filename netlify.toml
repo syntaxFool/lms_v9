@@ -1,0 +1,19 @@
+# Netlify configuration for LeadFlow India CRM
+
+[build]
+  publish = "."
+  command = ""
+
+[build.environment]
+  NODE_VERSION = "18"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# Uncomment below if you want to force HTTPS
+#[[redirects]]
+#  from = "http://*"
+#  to = "https://:splat"
+#  status = 301
