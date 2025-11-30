@@ -1008,15 +1008,18 @@
             setTimeout(() => {
                 const store = new LeadStore();
                 window.app = new App(store);
-                // If dbUrl is set, try to sync users from cloud, else always allow local Superuser login
                 if (store.config.dbUrl) {
                     store.syncWithCloud().then(() => {
                         loadingOverlay.classList.add('hidden');
                     });
                 } else {
-                    // No dbUrl: show login immediately, allow local superuser
+                    // No dbUrl: show config modal and block login until set
                     loadingOverlay.classList.add('hidden');
                     document.getElementById('loginScreen').classList.remove('hidden');
+                    // Show config modal automatically
+                    if (window.ui && typeof window.ui.toggleConfig === 'function') {
+                        setTimeout(() => window.ui.toggleConfig(true), 300);
+                    }
                 }
             }, 0);
         });
