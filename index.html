@@ -997,7 +997,26 @@
             },
             toggleMenu: (s) => { const m = document.getElementById('sideMenu'); if(s) { try { window.app.renderFollowUps(); } catch(e){} m.classList.remove('hidden'); requestAnimationFrame(()=>m.classList.add('open')); } else { m.classList.remove('open'); setTimeout(()=>m.classList.add('hidden'),300); } },
             toggleLogs: (s) => { const m = document.getElementById('logsModal'); if(s) { try { window.app.renderLogs(); } catch(e){} m.classList.remove('hidden'); requestAnimationFrame(()=>m.classList.add('open')); } else { m.classList.remove('open'); setTimeout(()=>m.classList.add('hidden'),300); } },
-            toggleConfig: (s) => { const m = document.getElementById('configModal'); if(s) { try { window.app.renderUserList(); } catch(e){} m.classList.remove('hidden'); requestAnimationFrame(()=>m.classList.add('open')); } else { m.classList.remove('open'); setTimeout(()=>m.classList.add('hidden'),300); } },
+            toggleConfig: (s) => {
+                const m = document.getElementById('configModal');
+                if (s) {
+                    try { window.app.renderUserList(); } catch (e) {}
+                    m.classList.remove('hidden');
+                    requestAnimationFrame(() => m.classList.add('open'));
+                    // Fallback: forcibly show modal if still hidden after 500ms
+                    setTimeout(() => {
+                        if (m.classList.contains('hidden')) {
+                            m.classList.remove('hidden');
+                        }
+                        if (!m.classList.contains('open')) {
+                            m.classList.add('open');
+                        }
+                    }, 500);
+                } else {
+                    m.classList.remove('open');
+                    setTimeout(() => m.classList.add('hidden'), 300);
+                }
+            },
             showLoading: (s) => { const l = document.getElementById('loadingOverlay'); if(s) l.classList.remove('hidden'); else l.classList.add('hidden'); }
         };
 
