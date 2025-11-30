@@ -320,20 +320,36 @@
             }
 
             async syncWithCloud() {
-                if (!this.config.dbUrl) return;
+                if (!this.config.dbUrl) {
+                    console.error('syncWithCloud: No dbUrl configured');
+                    document.getElementById('loginError').textContent = 'Debug: No Script URL (dbUrl) configured.';
+                    document.getElementById('loginError').classList.remove('hidden');
+                    return;
+                }
                 ui.showLoading(true);
                 try {
+                    console.log('syncWithCloud: Fetching from', this.config.dbUrl);
                     const response = await fetch(this.config.dbUrl, { method: 'GET', redirect: 'follow', credentials: 'omit' });
-                    if (!response.ok) throw new Error('Network response was not ok');
+                    if (!response.ok) throw new Error('Network response was not ok: ' + response.status);
                     const cloudData = await response.json();
+                    console.log('syncWithCloud: Received data', cloudData);
                     if (cloudData.leads) this.state = cloudData.leads;
-                    if (cloudData.users && cloudData.users.length > 0) this.users = cloudData.users;
+                    if (cloudData.users && cloudData.users.length > 0) {
+                        this.users = cloudData.users;
+                    } else {
+                        console.error('syncWithCloud: No users array or empty users from backend', cloudData.users);
+                        document.getElementById('loginError').textContent = 'Debug: No users returned from backend.';
+                        document.getElementById('loginError').classList.remove('hidden');
+                    }
                     if (cloudData.logs) this.logs = cloudData.logs;
                     if (cloudData.interests) this.interests = cloudData.interests;
                     if (cloudData.settings) this.settings = cloudData.settings; 
-                    
                     this.saveLocal(); 
-                } catch (e) { console.error("Sync Read Failed", e); } finally { ui.showLoading(false); }
+                } catch (e) {
+                    console.error("Sync Read Failed", e);
+                    document.getElementById('loginError').textContent = 'Debug: Sync failed - ' + e;
+                    document.getElementById('loginError').classList.remove('hidden');
+                } finally { ui.showLoading(false); }
             }
             async pushToCloud() {
                 if (!this.config.dbUrl) return;
