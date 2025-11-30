@@ -220,14 +220,7 @@
             <div class="md:hidden w-full flex justify-center pt-3 pb-1" onclick="ui.toggleConfig(false)"><div class="w-12 h-1.5 bg-slate-200 rounded-full"></div></div>
             <div class="px-6 py-4 border-b border-slate-100 shrink-0 flex justify-between items-center"><h3 class="text-xl font-bold text-slate-800 flex items-center gap-2"><i class="ph-bold ph-user-gear text-primary"></i> User Config</h3><button onclick="ui.toggleConfig(false)" class="hidden md:block p-1 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full"><i class="ph-bold ph-x text-lg"></i></button></div>
             <div class="flex-1 overflow-y-auto p-6">
-                                <div class="mb-8"><h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Database</h4><form onsubmit="app.handleSaveAppConfig(event)"><div class="space-y-3">
-<div><label class="block text-xs font-semibold text-slate-500 mb-1">Script URL</label><input type="text" name="dbUrl" id="configDbUrl" class="w-full bg-slate-50 border-slate-200 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" readonly></div>
-<div><label class="block text-xs font-semibold text-slate-500 mb-1">App Name</label><input type="text" name="appTitle" id="configAppTitle" class="w-full bg-slate-50 border-slate-200 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"></div>
-<div class="grid grid-cols-2 gap-3">
-    <div><label class="block text-xs font-semibold text-slate-500 mb-1">Primary Color</label><input type="color" name="primaryColor" id="configPrimaryColor" class="w-full h-10 p-0 border-0 bg-transparent"></div>
-    <div><label class="block text-xs font-semibold text-slate-500 mb-1">Secondary Color</label><input type="color" name="secondaryColor" id="configSecondaryColor" class="w-full h-10 p-0 border-0 bg-transparent"></div>
-</div>
-<button type="submit" class="w-full bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-700">Save & Sync</button></div></form></div>
+                <div class="mb-8"><h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Database</h4><form onsubmit="app.handleSaveAppConfig(event)"><div class="space-y-3"><div><label class="block text-xs font-semibold text-slate-500 mb-1">Script URL</label><input type="text" name="dbUrl" id="configDbUrl" class="w-full bg-slate-50 border-slate-200 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" readonly></div><div><label class="block text-xs font-semibold text-slate-500 mb-1">App Name</label><input type="text" name="appTitle" id="configAppTitle" class="w-full bg-slate-50 border-slate-200 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"></div><button type="submit" class="w-full bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-700">Save & Sync</button></div></form></div>
                 <div class="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200"><h4 class="text-sm font-bold text-slate-800 mb-3 flex justify-between">Add User <span id="userLimitMsg" class="text-xs font-normal text-slate-500"></span></h4><form onsubmit="app.handleAddUser(event)"><div class="grid grid-cols-2 gap-3 mb-3"><input type="text" name="newUsername" placeholder="ID" required class="w-full bg-white border-slate-200 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"><input type="password" name="newPassword" placeholder="Pwd" required class="w-full bg-white border-slate-200 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"></div><div class="grid grid-cols-2 gap-3 mb-3"><input type="text" name="newName" placeholder="Name" required class="w-full bg-white border-slate-200 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"><select name="newRole" class="w-full bg-white border-slate-200 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"><option value="agent">Agent</option><option value="admin">Admin</option></select></div><button type="submit" class="w-full bg-primary text-white font-bold py-2 rounded-lg text-sm hover:bg-indigo-600 transition shadow-sm">Create User</button></form></div>
                 <div><h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Users</h4><div id="userListContainer" class="space-y-3"></div></div>
             </div>
@@ -320,11 +313,9 @@
                 const data = this.loadLocal();
                 this.state = data.leads || [];
                 this.logs = data.logs || [];
-                this.config = data.config || { appTitle: 'LeadFlow', dbUrl: '', primaryColor: '#4f46e5', secondaryColor: '#64748b' };
+                this.config = data.config || { appTitle: 'LeadFlow', dbUrl: '' };
                 // Hardcode the Script URL
                 this.config.dbUrl = 'https://script.google.com/macros/s/AKfycbzHItA0cJehn2LiFmHaMDTftl6jPsI1Ffwtd9Gkfoo0c5g_LFBQN1lICHHai3qXn7nZPA/exec';
-                if (!this.config.primaryColor) this.config.primaryColor = '#4f46e5';
-                if (!this.config.secondaryColor) this.config.secondaryColor = '#64748b';
                 this.users = data.users || [];
                 this.interests = data.interests || []; 
                 this.settings = data.settings || { locations: [], sources: [] };
@@ -360,8 +351,6 @@
                     if (cloudData.settings) this.settings = cloudData.settings; 
                     // Always sync appTitle from backend config if present
                     if (cloudData.config && cloudData.config.appTitle) this.config.appTitle = cloudData.config.appTitle;
-                    if (cloudData.config && cloudData.config.primaryColor) this.config.primaryColor = cloudData.config.primaryColor;
-                    if (cloudData.config && cloudData.config.secondaryColor) this.config.secondaryColor = cloudData.config.secondaryColor;
                     this.saveLocal(); 
                     if(window.app && typeof window.app.applyConfig==='function'){window.app.applyConfig();}
                     if(window.app && typeof window.app.renderLeaderboard==='function'){window.app.renderLeaderboard();}
@@ -383,14 +372,14 @@
                 this.config = { ...this.config, ...newConfig };
                 this.saveLocal();
                 // Push appTitle to backend via dedicated action
-                if (this.config.dbUrl && (this.config.appTitle || this.config.primaryColor || this.config.secondaryColor)) {
+                if (this.config.dbUrl && this.config.appTitle) {
                     try {
                         await fetch(this.config.dbUrl, {
                             method: 'POST',
                             headers: { 'Content-Type': 'text/plain' },
-                            body: JSON.stringify({ action: 'save_script_url', appTitle: this.config.appTitle, primaryColor: this.config.primaryColor, secondaryColor: this.config.secondaryColor })
+                            body: JSON.stringify({ action: 'save_script_url', appTitle: this.config.appTitle })
                         });
-                    } catch (e) { console.error('AppTitle/color sync failed', e); }
+                    } catch (e) { console.error('AppTitle sync failed', e); }
                 }
                 await this.pushToCloud();
                 if (this.config.dbUrl) await this.syncWithCloud();
@@ -752,6 +741,8 @@
                 document.getElementById('loginError').classList.add('hidden');
                 ui.showLoading(true, 'Syncing users...');
                 await this.store.syncWithCloud();
+                // Ensure UI/app name updates instantly after sync
+                if (typeof this.applyConfig === 'function') this.applyConfig();
                 ui.showLoading(false);
                 const u = e.target.username.value;
                 const p = e.target.password.value;
@@ -812,17 +803,6 @@
                 document.getElementById('configAppTitle').value = title;
                 document.getElementById('configDbUrl').value = 'https://script.google.com/macros/s/AKfycbzHItA0cJehn2LiFmHaMDTftl6jPsI1Ffwtd9Gkfoo0c5g_LFBQN1lICHHai3qXn7nZPA/exec';
                 document.title = title;
-                // Set color pickers
-                if (document.getElementById('configPrimaryColor')) document.getElementById('configPrimaryColor').value = this.store.config.primaryColor || '#4f46e5';
-                if (document.getElementById('configSecondaryColor')) document.getElementById('configSecondaryColor').value = this.store.config.secondaryColor || '#64748b';
-                // Update Tailwind theme colors
-                if (window.tailwind && window.tailwind.config && window.tailwind.config.theme && window.tailwind.config.theme.extend && window.tailwind.config.theme.extend.colors) {
-                    window.tailwind.config.theme.extend.colors.primary = this.store.config.primaryColor || '#4f46e5';
-                    window.tailwind.config.theme.extend.colors.secondary = this.store.config.secondaryColor || '#64748b';
-                }
-                // Update CSS variables for custom color usage
-                document.documentElement.style.setProperty('--primary', this.store.config.primaryColor || '#4f46e5');
-                document.documentElement.style.setProperty('--secondary', this.store.config.secondaryColor || '#64748b');
             }
 
             handleAddUser(e) {
@@ -845,12 +825,7 @@
             }
             async handleSaveAppConfig(e) {
                 e.preventDefault();
-                await this.store.saveConfig({
-                    appTitle: e.target.appTitle.value,
-                    dbUrl: e.target.dbUrl.value,
-                    primaryColor: e.target.primaryColor.value,
-                    secondaryColor: e.target.secondaryColor.value
-                });
+                await this.store.saveConfig({ appTitle: e.target.appTitle.value, dbUrl: e.target.dbUrl.value });
                 this.applyConfig();
                 if(window.app && typeof window.app.renderLeaderboard==='function'){window.app.renderLeaderboard();}
                 alert('Saved & Synced');
