@@ -138,48 +138,17 @@
             async saveConfig(newConfig) {
                 this.config = { ...this.config, ...newConfig };
                 this.saveLocal();
+                // If superuser sets dbUrl or appTitle, save to backend for all users
                 if ((this.config.dbUrl || this.config.appTitle) && window.app && window.app.currentUser && window.app.currentUser.role === 'superuser') {
                     try {
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
                         await fetch(this.config.dbUrl, {
                             method: 'POST',
-
-                    console.log('syncWithCloud: Fetching from', this.config.dbUrl);
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-                    const response = await fetch(this.config.dbUrl, { method: 'GET', redirect: 'follow', credentials: 'omit', signal: controller.signal });
-                    clearTimeout(timeoutId);
-                    if (!response.ok) throw new Error('Network response was not ok: ' + response.status);
-                    const cloudData = await response.json();
-                    console.log('syncWithCloud: Received data', cloudData);
-                    if (cloudData.leads) this.state = cloudData.leads;
-                    if (cloudData.users && cloudData.users.length > 0) {
-                        this.users = cloudData.users;
-                    } else {
-                        console.error('syncWithCloud: No users array or empty users from backend', cloudData.users);
-                        const loginError = document.getElementById('loginError');
-                        if (loginError) {
-                            loginError.textContent = 'Debug: No users returned from backend.';
-                            loginError.classList.remove('hidden');
-                        }
-                    }
-                    if (cloudData.logs) this.logs = cloudData.logs;
-                    if (cloudData.interests) this.interests = cloudData.interests;
-                    if (cloudData.settings) this.settings = cloudData.settings; 
-                    this.saveLocal(); 
-                } catch (e) {
-                    console.error("Sync Read Failed", e);
-                    const loginError = document.getElementById('loginError');
-                    if (loginError) {
-                        if (e.name === 'AbortError') {
-                            loginError.textContent = 'Sync failed: Request timed out.';
-                        } else {
-                            loginError.textContent = 'Debug: Sync failed - ' + e;
-                        }
-                        loginError.classList.remove('hidden');
-                    }
-                } finally { ui.showLoading(false); }
+                            headers: { 'Content-Type': 'text/plain' },
+                            body: JSON.stringify({ action: 'save_script_url', scriptUrl: this.config.dbUrl, appTitle: this.config.appTitle })
+                        });
+                    } catch (e) { /* ignore */ }
+                }
+                if (this.config.dbUrl) this.syncWithCloud();
             }
             async pushToCloud() {
                 if (!this.config.dbUrl) return;
